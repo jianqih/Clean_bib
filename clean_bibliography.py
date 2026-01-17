@@ -5,17 +5,13 @@ Comprehensive BibTeX Bibliography Cleaner
 This script performs multiple cleaning operations on BibTeX files:
 1. Capitalizes journal titles (title case)
 2. Removes unwanted fields (DOI, URL, file paths, etc.)
-3. Optionally uppercases author surnames
 
 Usage:
     python clean_bibliography.py input.bib output.bib [options]
 
 Examples:
-    # Full cleaning (journal titles + remove fields, no surname uppercase)
+    # Full cleaning (journal titles + remove fields)
     python clean_bibliography.py ref.bib ref_cleaned.bib
-    
-    # Full cleaning with uppercase surnames
-    python clean_bibliography.py ref.bib ref_cleaned.bib --uppercase-surnames
     
     # Only fix journal titles
     python clean_bibliography.py ref.bib ref_cleaned.bib --journals-only
@@ -113,103 +109,6 @@ def fix_journal_titles(content):
 
 
 # =============================================================================
-# AUTHOR SURNAME UPPERCASING
-# =============================================================================
-
-def uppercase_surname(name):
-    """
-    Convert a single name to have uppercase surname.
-    Handles formats like: "Last, First" or "First Last" or "{Last}, First"
-    """
-    name = name.strip()
-    if not name:
-        return name
-    
-    # Check if already wrapped in \MakeUppercase
-    if r'\MakeUppercase' in name or r'\MakeTextUppercase' in name:
-        return name
-    
-    # Handle "Last, First" format (most common in BibTeX)
-    if ',' in name:
-        parts = name.split(',', 1)
-        surname = parts[0].strip()
-        rest = parts[1].strip() if len(parts) > 1 else ""
-        
-        # Remove existing braces from surname
-        surname_clean = re.sub(r'^\{(.+)\}$', r'\1', surname)
-        
-        # Wrap surname in \MakeUppercase
-        surname_upper = f"{{\\MakeUppercase{{{surname_clean}}}}}"
-        
-        if rest:
-            return f"{surname_upper}, {rest}"
-        else:
-            return surname_upper
-    else:
-        # Handle "First Last" format - uppercase the last word
-        words = name.split()
-        if len(words) > 1:
-            # Last word is surname
-            surname = words[-1]
-            first_names = ' '.join(words[:-1])
-            surname_clean = re.sub(r'^\{(.+)\}$', r'\1', surname)
-            surname_upper = f"{{\\MakeUppercase{{{surname_clean}}}}}"
-            return f"{first_names} {surname_upper}"
-        else:
-            # Single word - treat as surname
-            surname_clean = re.sub(r'^\{(.+)\}$', r'\1', name)
-            return f"{{\\MakeUppercase{{{surname_clean}}}}}"
-
-
-def process_name_field(field_content):
-    """
-    Process a BibTeX author or editor field, handling multiple names separated by 'and'.
-    """
-    # Split by 'and' (case insensitive, but usually lowercase)
-    names = re.split(r'\s+and\s+', field_content, flags=re.IGNORECASE)
-    
-    # Process each name
-    processed_names = []
-    for name in names:
-        processed_names.append(uppercase_surname(name))
-    
-    # Join back with ' and '
-    return ' and '.join(processed_names)
-
-
-def uppercase_surnames(content):
-    """
-    Convert all author/editor surnames to uppercase in BibTeX content.
-    Returns: (modified_content, count_of_changes)
-    """
-    # Pattern to match author or editor fields
-    pattern = re.compile(
-        r'(\s*(?:author|editor)\s*=\s*)([{"])([^}"]+)([}"])',
-        re.IGNORECASE
-    )
-    
-    def replace_names(match):
-        prefix = match.group(1)
-        opening = match.group(2)
-        names_text = match.group(3)
-        closing = match.group(4)
-        
-        # Process the names
-        processed = process_name_field(names_text)
-        
-        # Return with original delimiter
-        return f'{prefix}{opening}{processed}{closing}'
-    
-    # Count changes
-    original_fields = pattern.findall(content)
-    
-    # Replace all author/editor entries
-    fixed_content = pattern.sub(replace_names, content)
-    
-    return fixed_content, len(original_fields)
-
-
-# =============================================================================
 # FIELD REMOVAL
 # =============================================================================
 
@@ -295,13 +194,7 @@ def clean_bibliography(input_file, output_file, args):
         operations.append(f"✓ Fixed {journal_count} journal title(s)")
         print(f"✓ Fixed {journal_count} journal title(s)")
     
-    # 2. Uppercase surnames (if requested)
-    if args.uppercase_surnames:
-        content, surname_count = uppercase_surnames(content)
-        operations.append(f"✓ Uppercased {surname_count} author/editor field(s)")
-        print(f"✓ Uppercased {surname_count} author/editor surname(s)")
-    
-    # 3. Remove unwanted fields (unless --journals-only)
+    # 2. Remove unwanted fields (unless --journals-only)
     if not args.journals_only:
         if args.fields:
             fields_to_remove = [f.strip() for f in args.fields.split(',')]
@@ -341,9 +234,6 @@ Examples:
   # Full cleaning (journal titles + remove fields)
   python clean_bibliography.py ref.bib ref_cleaned.bib
   
-  # Full cleaning with uppercase surnames
-  python clean_bibliography.py ref.bib ref_cleaned.bib --uppercase-surnames
-  
   # Only fix journal titles
   python clean_bibliography.py ref.bib ref_cleaned.bib --journals-only
   
@@ -357,8 +247,6 @@ Examples:
     
     parser.add_argument('input', help='Input .bib file')
     parser.add_argument('output', help='Output .bib file')
-    parser.add_argument('--uppercase-surnames', action='store_true',
-                        help='Uppercase author/editor surnames using \\MakeUppercase')
     parser.add_argument('--journals-only', action='store_true',
                         help='Only fix journal titles (skip field removal)')
     parser.add_argument('--remove-fields-only', action='store_true',
@@ -385,4 +273,3 @@ Examples:
 
 if __name__ == '__main__':
     main()
-

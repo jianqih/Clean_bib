@@ -4,11 +4,10 @@ A comprehensive Python script for cleaning and formatting BibTeX bibliography fi
 
 ## Features
 
-This script performs three main operations:
+This script performs two main operations:
 
 1. **Journal Title Capitalization**: Converts journal names to proper title case and wraps them in double braces to preserve capitalization
 2. **Field Removal**: Removes unwanted fields (DOI, URL, file paths, abstracts, etc.) to create cleaner, publication-ready bibliographies
-3. **Surname Uppercasing** (optional): Converts author/editor surnames to uppercase using `\MakeUppercase{}`
 
 ## Requirements
 
@@ -30,9 +29,6 @@ python clean_bibliography.py doc/ref.bib doc/ref_cleaned.bib
 ### Advanced Options
 
 ```bash
-# Include uppercase surnames
-python clean_bibliography.py doc/ref.bib doc/ref_cleaned.bib --uppercase-surnames
-
 # Only fix journal titles (keep all fields)
 python clean_bibliography.py doc/ref.bib doc/ref_cleaned.bib --journals-only
 
@@ -49,7 +45,6 @@ python clean_bibliography.py doc/ref.bib doc/ref_cleaned.bib --fields doi,url,ab
 |--------|-------------|
 | `input` | Input .bib file (required) |
 | `output` | Output .bib file (required) |
-| `--uppercase-surnames` | Uppercase author/editor surnames using `\MakeUppercase` |
 | `--journals-only` | Only fix journal titles (skip field removal) |
 | `--remove-fields-only` | Only remove fields (skip journal title fixing) |
 | `--fields FIELDS` | Comma-separated list of fields to remove (overrides defaults) |
@@ -109,26 +104,6 @@ python clean_bibliography.py input.bib output.bib
 }
 ```
 
-### Example 2: With Uppercase Surnames
-
-**Command:**
-```bash
-python clean_bibliography.py input.bib output.bib --uppercase-surnames
-```
-
-**Output:**
-```bibtex
-@article{acemoglu1998,
-  title = {Technical Change and Inequality},
-  author = {{\MakeUppercase{Acemoglu}}, Daron},
-  year = 1998,
-  journal = {{The Quarterly Journal of Economics}},
-  volume = {113}
-}
-```
-
-This renders as: **ACEMOGLU**, Daron (1998) "Technical Change and Inequality"
-
 ## Output Statistics
 
 The script provides detailed statistics:
@@ -141,7 +116,6 @@ Input:  doc/ref.bib
 Output: doc/ref_cleaned.bib
 ----------------------------------------------------------------------
 ✓ Fixed 132 journal title(s)
-✓ Uppercased 170 author/editor surname(s)
 ✓ Removed 421 unwanted field entries
 ----------------------------------------------------------------------
 ✓ Successfully cleaned bibliography!
@@ -171,16 +145,6 @@ Examples:
 **Solution**: Make sure you're using the cleaned `.bib` file in your LaTeX document:
 ```latex
 \bibliography{ref_cleaned}  % Not ref_cleaned.bib
-```
-
-### Issue: Surnames not appearing in uppercase
-
-**Solution**: If you used `--uppercase-surnames`, make sure your bibliography style supports `\MakeUppercase`. Most modern styles do, but you may need to compile multiple times:
-```bash
-pdflatex main.tex
-bibtex main
-pdflatex main.tex
-pdflatex main.tex
 ```
 
 ### Issue: Some fields I want to keep are being removed
@@ -214,7 +178,6 @@ After cleaning your bibliography:
 - **v1.0** (2026-01-17): Initial release
   - Journal title capitalization
   - Field removal
-  - Optional surname uppercasing
   - Comprehensive documentation
 
 ## Author
@@ -224,4 +187,3 @@ Generated for bibliography management and formatting in economics research paper
 ## License
 
 Free to use and modify for academic and research purposes.
-
