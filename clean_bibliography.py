@@ -4,7 +4,8 @@ Comprehensive BibTeX Bibliography Cleaner
 
 This script performs multiple cleaning operations on BibTeX files:
 1. Capitalizes journal titles (title case)
-2. Removes unwanted fields (DOI, URL, file paths, etc.)
+2. Capitalizes entry titles (title case)
+3. Removes unwanted fields (DOI, URL, file paths, etc.)
 
 Usage:
     python clean_bibliography.py input.bib output.bib [options]
@@ -35,37 +36,38 @@ import argparse
 # JOURNAL TITLE CAPITALIZATION
 # =============================================================================
 
-def title_case_journal(journal_name):
+LOWERCASE_WORDS = {
+    'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'of',
+    'on', 'or', 'the', 'to', 'with', 'from', 'into', 'via', 'nor'
+}
+
+UPPERCASE_WORDS = {'US', 'USA', 'UK', 'EU', 'NBER', 'CEO', 'GDP', 'AI', 'IT', 'R&D', 'OECD'}
+
+ABBREV_PATTERN = re.compile(r'\b[A-Z]{2,}\b')
+
+
+def title_case_text(text, capitalize_last=False):
     """
-    Apply title case to journal names, with special handling for common words.
+    Apply title case with common BibTeX-friendly rules.
     """
-    # Remove existing braces
-    journal_name = re.sub(r'[{}]', '', journal_name)
-    
-    # Words that should stay lowercase (unless at the beginning)
-    lowercase_words = {
-        'a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'of', 
-        'on', 'or', 'the', 'to', 'with', 'from', 'into', 'via', 'nor'
-    }
-    
-    # Words that should stay uppercase
-    uppercase_words = {'US', 'USA', 'UK', 'EU', 'NBER', 'CEO', 'GDP', 'AI', 'IT', 'R&D', 'OECD'}
-    
-    # Abbreviations that are typically all caps
-    abbrev_pattern = re.compile(r'\b[A-Z]{2,}\b')
-    
-    words = journal_name.split()
+    # Remove existing braces to normalize casing
+    text = re.sub(r'[{}]', '', text)
+    words = text.split()
     result = []
     
     for i, word in enumerate(words):
+        is_first = i == 0
+        is_last = i == len(words) - 1
         # Check if it's an abbreviation or special uppercase word
-        if word.upper() in uppercase_words or abbrev_pattern.match(word):
+        if word.upper() in UPPERCASE_WORDS or ABBREV_PATTERN.match(word):
             result.append(word.upper())
         # First word or word after colon/dash should always be capitalized
-        elif i == 0 or (i > 0 and words[i-1][-1] in ':—-'):
+        elif is_first or (i > 0 and words[i - 1][-1] in ':—-'):
+            result.append(word.capitalize())
+        elif capitalize_last and is_last:
             result.append(word.capitalize())
         # Check if it should be lowercase
-        elif word.lower() in lowercase_words:
+        elif word.lower() in LOWERCASE_WORDS:
             result.append(word.lower())
         else:
             result.append(word.capitalize())
@@ -73,31 +75,40 @@ def title_case_journal(journal_name):
     return ' '.join(result)
 
 
+def normalize_bibtex_value(value):
+    """
+    Strip common BibTeX wrappers like quotes and outer braces.
+    """
+    value = value.strip()
+    if value.startswith('"') and value.endswith('"'):
+        value = value[1:-1].strip()
+    while value.startswith('{') and value.endswith('}'):
+        value = value[1:-1].strip()
+    return value
+
+
 def fix_journal_titles(content):
     """
     Fix journal title capitalization in BibTeX content.
     Returns: (modified_content, count_of_changes)
     """
-    # Pattern to match journal entries
+    # Pattern to match journal entries (line-based to avoid brace drift)
     pattern = re.compile(
-        r'(\s*journal\s*=\s*)([{""])([^}"]+)([}"])',
-        re.IGNORECASE
+        r'^(\s*journal\s*=\s*)(.+?)(\s*,\s*)?$',
+        re.IGNORECASE | re.MULTILINE
     )
     
     def replace_journal(match):
         prefix = match.group(1)
-        opening = match.group(2)
-        journal_text = match.group(3)
-        closing = match.group(4)
+        journal_text = match.group(2)
+        trailing = match.group(3) or ''
         
         # Apply title case
-        fixed_title = title_case_journal(journal_text.strip())
-        
-        # Wrap in double braces to preserve capitalization
-        if opening == '{':
-            return f'{prefix}{{{{{fixed_title}}}}}'
-        else:  # opening == '"'
-            return f'{prefix}"{{{{{fixed_title}}}}}"'
+        fixed_title = title_case_text(
+            normalize_bibtex_value(journal_text),
+            capitalize_last=False
+        )
+        return f'{prefix}{{{{{fixed_title}}}}}{trailing}'
     
     # Count original journals
     original_journals = pattern.findall(content)
@@ -106,6 +117,36 @@ def fix_journal_titles(content):
     fixed_content = pattern.sub(replace_journal, content)
     
     return fixed_content, len(original_journals)
+
+
+def fix_title_fields(content, field_names):
+    """
+    Fix entry title capitalization (e.g., title, booktitle) in BibTeX content.
+    Returns: (modified_content, count_of_changes)
+    """
+    total_matches = 0
+    
+    for field in field_names:
+        pattern = re.compile(
+            rf'^(\s*{field}\s*=\s*)(.+?)(\s*,\s*)?$',
+            re.IGNORECASE | re.MULTILINE
+        )
+        
+        def replace_title(match):
+            prefix = match.group(1)
+            title_text = match.group(2)
+            trailing = match.group(3) or ''
+            
+            fixed_title = title_case_text(
+                normalize_bibtex_value(title_text),
+                capitalize_last=True
+            )
+            return f'{prefix}{{{{{fixed_title}}}}}{trailing}'
+        
+        total_matches += len(pattern.findall(content))
+        content = pattern.sub(replace_title, content)
+    
+    return content, total_matches
 
 
 # =============================================================================
@@ -125,6 +166,7 @@ DEFAULT_FIELDS_TO_REMOVE = [
     'issn',
     'isbn',
     'language',
+    'month',
     'shorttitle',
     'annotation',
     'note',
@@ -164,6 +206,13 @@ def remove_fields(content, fields_to_remove):
     return content, removed_count
 
 
+def remove_blank_lines(content):
+    """
+    Remove empty or whitespace-only lines from BibTeX content.
+    """
+    return re.sub(r'^[ \t]*\n', '', content, flags=re.MULTILINE)
+
+
 # =============================================================================
 # MAIN FUNCTION
 # =============================================================================
@@ -193,6 +242,12 @@ def clean_bibliography(input_file, output_file, args):
         content, journal_count = fix_journal_titles(content)
         operations.append(f"✓ Fixed {journal_count} journal title(s)")
         print(f"✓ Fixed {journal_count} journal title(s)")
+        
+        # 1b. Fix entry titles unless journals-only is requested
+        if not args.journals_only:
+            content, title_count = fix_title_fields(content, ['title'])
+            operations.append(f"✓ Fixed {title_count} entry title(s)")
+            print(f"✓ Fixed {title_count} entry title(s)")
     
     # 2. Remove unwanted fields (unless --journals-only)
     if not args.journals_only:
@@ -206,6 +261,9 @@ def clean_bibliography(input_file, output_file, args):
         content, removed_count = remove_fields(content, fields_to_remove)
         operations.append(f"✓ Removed {removed_count} unwanted field(s)")
         print(f"✓ Removed {removed_count} unwanted field entries")
+
+    # 3. Remove blank lines left after cleaning
+    content = remove_blank_lines(content)
     
     # Write output
     with open(output_file, 'w', encoding='utf-8') as f:

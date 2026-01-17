@@ -4,10 +4,12 @@ A comprehensive Python script for cleaning and formatting BibTeX bibliography fi
 
 ## Features
 
-This script performs two main operations:
+This script performs four main operations:
 
 1. **Journal Title Capitalization**: Converts journal names to proper title case and wraps them in double braces to preserve capitalization
-2. **Field Removal**: Removes unwanted fields (DOI, URL, file paths, abstracts, etc.) to create cleaner, publication-ready bibliographies
+2. **Entry Title Capitalization**: Applies title case to entry titles (e.g., `title`) using common headline-style rules
+3. **Field Removal**: Removes unwanted fields (DOI, URL, file paths, abstracts, etc.) to create cleaner, publication-ready bibliographies
+4. **Blank Line Cleanup**: Removes empty or whitespace-only lines left after cleaning
 
 ## Requirements
 
@@ -64,6 +66,7 @@ By default, the script removes these fields:
 - `keywords` - Keywords
 - `issn` / `isbn` - Serial numbers
 - `language` - Language tags
+- `month` - Month fields
 - `shorttitle` - Short titles
 - `annotation` - Annotations
 - `note` - Notes
@@ -116,6 +119,7 @@ Input:  doc/ref.bib
 Output: doc/ref_cleaned.bib
 ----------------------------------------------------------------------
 ✓ Fixed 132 journal title(s)
+✓ Fixed 132 entry title(s)
 ✓ Removed 421 unwanted field entries
 ----------------------------------------------------------------------
 ✓ Successfully cleaned bibliography!
@@ -124,7 +128,7 @@ Output: doc/ref_cleaned.bib
 ======================================================================
 ```
 
-## Journal Title Capitalization Rules
+## Title Capitalization Rules
 
 The script applies intelligent title case:
 
@@ -177,7 +181,9 @@ After cleaning your bibliography:
 
 - **v1.0** (2026-01-17): Initial release
   - Journal title capitalization
+  - Entry title capitalization
   - Field removal
+  - Blank line cleanup
   - Comprehensive documentation
 
 ## Author
